@@ -1,6 +1,7 @@
 import click
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import pyvista as pv
 
 
@@ -8,19 +9,25 @@ import pyvista as pv
 @click.option("--length", prompt="Sheet length (inches)", type=float, default=96.0)
 @click.option("--width", prompt="Sheet width (inches)", type=float, default=48.0)
 @click.option("--height", prompt="Bubble height (inches)", type=float, default=12.0)
-@click.option("--resolution", prompt="Mesh resolution (points per side)", type=int, default=50)
+@click.option(
+    "--resolution", prompt="Mesh resolution (points per side)", type=int, default=50
+)
 @click.option("--output", prompt="Output filename", type=str, default="bubble.stl")
-def pyblow(length: float, width: float, height: float, resolution: int, output: str):
+def pyblow(
+    length: float, width: float, height: float, resolution: int, output: str
+) -> None:
     """
     Generate a 3D mesh of a blown acrylic bubble.
 
     Models a rectangular acrylic sheet that has been heated and blown into a bubble shape.
     The edges remain flat (z=0) and the center rises to the specified height.
     """
-    print(f"Generating bubble: {length}\" x {width}\" x {height}\" high")
+    print(f'Generating bubble: {length}" x {width}" x {height}" high')
     print(f"Mesh resolution: {resolution} x {resolution}")
 
     # Generate the bubble mesh
+    vertices: npt.NDArray[np.float64]
+    faces: npt.NDArray[np.int64]
     vertices, faces = generate_bubble_mesh(length, width, height, resolution)
 
     # Visualize (optional)
@@ -30,10 +37,10 @@ def pyblow(length: float, width: float, height: float, resolution: int, output: 
     write_mesh_stl(output, vertices, faces)
     print(f"STL file written to: {output}")
 
-    return
 
-
-def generate_bubble_mesh(length: float, width: float, height: float, resolution: int):
+def generate_bubble_mesh(
+    length: float, width: float, height: float, resolution: int
+) -> tuple[npt.NDArray[np.float64], npt.NDArray[np.int64]]:
     """
     Generate a structured mesh for a blown acrylic bubble.
 
@@ -53,61 +60,71 @@ def generate_bubble_mesh(length: float, width: float, height: float, resolution:
         faces: Mx3 array of triangle face indices
     """
     # Create a grid of points on the XY plane
-    x = np.linspace(-length / 2, length / 2, resolution)
-    y = np.linspace(-width / 2, width / 2, resolution)
+    x: npt.NDArray[np.float64] = np.linspace(-length / 2, length / 2, resolution)
+    y: npt.NDArray[np.float64] = np.linspace(-width / 2, width / 2, resolution)
+    X: npt.NDArray[np.float64]
+    Y: npt.NDArray[np.float64]
     X, Y = np.meshgrid(x, y)
 
     # Calculate Z height using ellipsoidal cap formula
     # For a point (x, y), calculate normalized distance from center
     # z = h * sqrt(1 - (x/a)^2 - (y/b)^2) for points inside the ellipse
 
-    a = length / 2  # Semi-major axis in X
-    b = width / 2   # Semi-major axis in Y
+    a: float = length / 2  # Semi-major axis in X
+    b: float = width / 2  # Semi-major axis in Y
 
     # Normalized squared distance from center
-    norm_dist_sq = (X / a) ** 2 + (Y / b) ** 2
+    norm_dist_sq: npt.NDArray[np.float64] = (X / a) ** 2 + (Y / b) ** 2
 
     # Calculate height - ellipsoidal cap
     # Only positive values (above the XY plane)
-    Z = np.zeros_like(X)
-    inside_mask = norm_dist_sq <= 1.0
+    Z: npt.NDArray[np.float64] = np.zeros_like(X)
+    inside_mask: npt.NDArray[np.bool_] = norm_dist_sq <= 1.0
     Z[inside_mask] = height * np.sqrt(1 - norm_dist_sq[inside_mask])
 
     # Flatten the grid into a vertex list
-    vertices = np.column_stack((X.ravel(), Y.ravel(), Z.ravel()))
+    vertices: npt.NDArray[np.float64] = np.column_stack(
+        (X.ravel(), Y.ravel(), Z.ravel())
+    )
 
     # Generate triangle faces for the structured grid
-    faces = []
+    faces: list[list[int]] = []
     for i in range(resolution - 1):
         for j in range(resolution - 1):
             # Each grid cell creates two triangles
             # Vertex indices in the flattened array
-            v0 = i * resolution + j
-            v1 = i * resolution + (j + 1)
-            v2 = (i + 1) * resolution + j
-            v3 = (i + 1) * resolution + (j + 1)
+            v0: int = i * resolution + j
+            v1: int = i * resolution + (j + 1)
+            v2: int = (i + 1) * resolution + j
+            v3: int = (i + 1) * resolution + (j + 1)
 
             # Two triangles per quad
             faces.append([v0, v1, v2])
             faces.append([v1, v3, v2])
 
-    faces = np.array(faces)
+    faces_array: npt.NDArray[np.int64] = np.array(faces, dtype=np.int64)
 
-    return vertices, faces
+    return vertices, faces_array
 
 
-def plot_3D(x, y, z):
+def plot_3D(
+    x: npt.NDArray[np.float64], y: npt.NDArray[np.float64], z: npt.NDArray[np.float64]
+) -> None:
     """Visualize the 3D mesh as a scatter plot."""
     ax = plt.figure().add_subplot(projection="3d")
-    ax.scatter(x, y, z, c=z, cmap='viridis', s=1)
-    ax.set_xlabel('X (inches)')
-    ax.set_ylabel('Y (inches)')
-    ax.set_zlabel('Z (inches)')
-    ax.set_title('Blown Acrylic Bubble')
+    ax.scatter(x, y, z, c=z, cmap="viridis", s=1)
+    ax.set_xlabel("X (inches)")
+    ax.set_ylabel("Y (inches)")
+    ax.set_zlabel("Z (inches)")
+    ax.set_title("Blown Acrylic Bubble")
     plt.show()
 
 
-def write_mesh_stl(filename: str, vertices: np.ndarray, faces: np.ndarray):
+def write_mesh_stl(
+    filename: str,
+    vertices: npt.NDArray[np.float64],
+    faces: npt.NDArray[np.int64],
+) -> None:
     """
     Write a mesh to an STL file using PyVista.
 
@@ -118,10 +135,12 @@ def write_mesh_stl(filename: str, vertices: np.ndarray, faces: np.ndarray):
     """
     # PyVista expects faces in format: [3, v0, v1, v2, 3, v3, v4, v5, ...]
     # where the first number is the count of vertices per face
-    pv_faces = np.column_stack((np.full(len(faces), 3), faces)).ravel()
+    pv_faces: npt.NDArray[np.int64] = np.column_stack(
+        (np.full(len(faces), 3, dtype=np.int64), faces)
+    ).ravel()
 
     # Create PyVista mesh
-    mesh = pv.PolyData(vertices, pv_faces)
+    mesh: pv.PolyData = pv.PolyData(vertices, pv_faces)
 
     # Save to STL
     mesh.save(filename)
